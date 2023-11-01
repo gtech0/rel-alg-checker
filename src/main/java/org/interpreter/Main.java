@@ -346,15 +346,8 @@ public class Main {
             boolean finalNotCheck1,
             Set<Multimap<String, Object>> result
     ) {
-        double currentVal;
-        double newVal;
-        if (isNumeric(value)) {
-            currentVal = Double.parseDouble(value);
-        } else {
-
-        }
-
-        newVal = Double.parseDouble(op1);
+        double currentVal = Double.parseDouble(value);
+        double newVal = Double.parseDouble(op1);
         if ((Objects.equals(token, ">")
                 && (currentVal > newVal && !finalNotCheck1 || currentVal <= newVal && finalNotCheck1))
 
