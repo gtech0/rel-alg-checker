@@ -3,8 +3,6 @@ package org.interpreter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import net.objecthunter.exp4j.Expression;
-import net.objecthunter.exp4j.ExpressionBuilder;
 import org.interpreter.exception.BaseException;
 
 import java.util.*;
@@ -50,7 +48,7 @@ public class Main {
 //                selection(relationMap.get("R1"), List.of("phone", "!=", "133123", "AND", "1", "=", "1")));
 
         List<String> query1 = Arrays.asList(
-                "SELECT R1 WHERE phone != \"133123\" AND 1 = 1 -> T1",
+                "SELECT R1 WHERE phone = 133123 * 1 / 1 AND 1 = 1 -> T1",
                 "DIFFERENCE R1 AND T1 -> T2",
                 "DIVIDE R3 BY T2 OVER group username -> T3",
                 "JOIN T2 AND T3 OVER username"
@@ -258,8 +256,9 @@ public class Main {
         return joinedRelation;
     }
 
-    public static Set<Multimap<String, Object>> selection(Set<Multimap<String, Object>> relation, List<String> tokens) {
-        Queue<String> RPN = shuntingYard(relation, tokens);
+    public static Set<Multimap<String, Object>> selection(Set<Multimap<String, Object>> relation,
+                                                          List<String> tokens) {
+        Queue<String> RPN = shuntingYard(tokens);
 
         Stack<Object> results = new Stack<>();
         for (String token : RPN) {
@@ -285,19 +284,36 @@ public class Main {
                         boolean finalNotCheck1 = notCheck;
 
                         op2 = results.pop();
-                        if (Objects.equals(op2, op1)) {
-                            results.push(relation);
-                        } else {
-                            result = new HashSet<>();
-                            finalOp2 = (String) op2;
-                            finalOp1 = (String) op1;
-                            relation.forEach(map ->
-                                    map.get(finalOp2).forEach(
-                                            value -> valueComparator(token, map, (String) value, finalOp1, finalNotCheck1, result)
-                                    )
-                            );
-                            results.push(result);
-                        }
+
+                        result = new HashSet<>();
+                        finalOp2 = (String) op2;
+                        finalOp1 = (String) op1;
+                        relation.forEach(map -> {
+                            Collection<Object> mapValues = map.get(finalOp2);
+                                    if (!mapValues.isEmpty()) {
+                                        mapValues.forEach(
+                                                value -> valueComparator(
+                                                        token,
+                                                        map,
+                                                        (String) value,
+                                                        finalOp1,
+                                                        finalNotCheck1,
+                                                        result
+                                                )
+                                        );
+                                    } else {
+                                        valueComparator(
+                                                token,
+                                                map,
+                                                finalOp2,
+                                                finalOp1,
+                                                finalNotCheck1,
+                                                result
+                                        );
+                                    }
+                                }
+                        );
+                        results.push(result);
                         break;
                     case "+":
                     case "-":
@@ -308,8 +324,24 @@ public class Main {
                         finalOp1 = (String) op1;
                         finalOp2 = (String) op2;
                         if (isNumeric(finalOp1) && isNumeric(finalOp2)) {
-                            Expression expression = new ExpressionBuilder(finalOp2 + token + finalOp1).build();
-                            results.push(Double.toString(expression.evaluate()));
+                            double val1 = Double.parseDouble(finalOp1);
+                            double val2 = Double.parseDouble(finalOp2);
+                            switch (token) {
+                                case "+":
+                                    results.push(Double.toString(val2 + val1));
+                                    break;
+                                case "-":
+                                    results.push(Double.toString(val2 - val1));
+                                    break;
+                                case "*":
+                                    results.push(Double.toString(val2 * val1));
+                                    break;
+                                case "/":
+                                    results.push(Double.toString(val2 / val1));
+                                    break;
+                            }
+                        } else {
+                            throw new BaseException("Incorrect mathematical expression");
                         }
                         break;
                     case "OR":
@@ -346,31 +378,69 @@ public class Main {
             boolean finalNotCheck1,
             Set<Multimap<String, Object>> result
     ) {
-        double currentVal = Double.parseDouble(value);
-        double newVal = Double.parseDouble(op1);
-        if ((Objects.equals(token, ">")
-                && (currentVal > newVal && !finalNotCheck1 || currentVal <= newVal && finalNotCheck1))
+        if (Objects.equals(token, ">")) {
+            double currentVal = Double.parseDouble(value);
+            double newVal = Double.parseDouble(op1);
+            if (currentVal > newVal && !finalNotCheck1 || currentVal <= newVal && finalNotCheck1) {
+                result.add(map);
+            }
+        }
 
-                || (Objects.equals(token, "<")
-                && (currentVal < newVal && !finalNotCheck1 || currentVal >= newVal && finalNotCheck1))
+        if (Objects.equals(token, "<")) {
+            double currentVal = Double.parseDouble(value);
+            double newVal = Double.parseDouble(op1);
+            if (currentVal < newVal && !finalNotCheck1 || currentVal >= newVal && finalNotCheck1) {
+                result.add(map);
+            }
+        }
 
-                || (Objects.equals(token, ">=")
-                && (currentVal >= newVal && !finalNotCheck1 || currentVal < newVal && finalNotCheck1))
+        if (Objects.equals(token, ">=")) {
+            double currentVal = Double.parseDouble(value);
+            double newVal = Double.parseDouble(op1);
+            if (currentVal >= newVal && !finalNotCheck1 || currentVal < newVal && finalNotCheck1) {
+                result.add(map);
+            }
+        }
 
-                || (Objects.equals(token, "<=")
-                && (currentVal <= newVal && !finalNotCheck1 || currentVal > newVal && finalNotCheck1))
+        if (Objects.equals(token, "<=")) {
+            double currentVal = Double.parseDouble(value);
+            double newVal = Double.parseDouble(op1);
+            if (currentVal <= newVal && !finalNotCheck1 || currentVal > newVal && finalNotCheck1) {
+                result.add(map);
+            }
+        }
 
-                || (Objects.equals(token, "=")
-                && (currentVal == newVal && !finalNotCheck1 || currentVal != newVal && finalNotCheck1))
+        if (Objects.equals(token, "=") || Objects.equals(token, "!=")) {
+            if (isNumeric(value) && isNumeric(op1)) {
+                double currentVal = Double.parseDouble(value);
+                double newVal = Double.parseDouble(op1);
+                if ((Objects.equals(token, "=") &&
+                        (currentVal == newVal && !finalNotCheck1 || currentVal != newVal && finalNotCheck1))
 
-                || (Objects.equals(token, "!=")
-                && (currentVal != newVal && !finalNotCheck1 || currentVal == newVal && finalNotCheck1))
-        ) {
-            result.add(map);
+                        || (Objects.equals(token, "!=")
+                        && (currentVal != newVal && !finalNotCheck1 || currentVal == newVal && finalNotCheck1))
+                ) {
+                    result.add(map);
+                }
+            } else if (op1.startsWith("\"")
+                    && op1.endsWith("\"")
+                    && op1.chars().filter(c -> c == '\"').count() == 2
+            ) {
+                String currentVal = value.replaceAll("\"", "");
+                String newVal = op1.replaceAll("\"", "");
+                if ((Objects.equals(token, "=")
+                        && (Objects.equals(currentVal, newVal) && !finalNotCheck1 || !Objects.equals(currentVal, newVal) && finalNotCheck1))
+
+                        || (Objects.equals(token, "!=")
+                        && (!Objects.equals(currentVal, newVal) && !finalNotCheck1 || Objects.equals(currentVal, newVal) && finalNotCheck1))
+                ) {
+                    result.add(map);
+                }
+            }
         }
     }
 
-    public static Queue<String> shuntingYard(Set<Multimap<String, Object>> relation, List<String> tokens) {
+    public static Queue<String> shuntingYard(List<String> tokens) {
         Queue<String> outputQueue = new LinkedList<>();
         Stack<String> operatorStack = new Stack<>();
         Map<String, Integer> operators = Map.ofEntries(
@@ -390,17 +460,6 @@ public class Main {
         );
 
         for (String token : tokens) {
-//            if (isNumeric(token)) {
-//                outputQueue.offer(token);
-//            } else {
-//                for (Multimap<String, Object> multimap : relation) {
-//                    if (multimap.containsKey(token) || multimap.containsValue(token)) {
-//                        outputQueue.offer(token);
-//                        break;
-//                    }
-//                }
-//            }
-
             if (operators.containsKey(token)) {
                 while (
                         !operatorStack.empty()
