@@ -48,7 +48,7 @@ public class Main {
 //                selection(relationMap.get("R1"), List.of("phone", "!=", "133123", "AND", "1", "=", "1")));
 
         List<String> query1 = Arrays.asList(
-                "SELECT R1 WHERE phone = 133123 * 1 / 1 AND 1 = 1 -> T1",
+                "SELECT R1 WHERE phone = 133123 * ( 1 / 2 + 1 - 0.5 ) AND 1 = 1 -> T1",
                 "DIFFERENCE R1 AND T1 -> T2",
                 "DIVIDE R3 BY T2 OVER group username -> T3",
                 "JOIN T2 AND T3 OVER username"
@@ -456,25 +456,42 @@ public class Main {
                 Map.entry("+", 4),
                 Map.entry("-", 4),
                 Map.entry("*", 5),
-                Map.entry("/", 5)
+                Map.entry("/", 5),
+                Map.entry("(", 6),
+                Map.entry(")", 6)
         );
 
         for (String token : tokens) {
-            if (operators.containsKey(token)) {
-                while (
-                        !operatorStack.empty()
-                                && operators.get(token) <=
-                                operators.get(operatorStack.peek())
+            if (!(operators.containsKey(token)
+                    || Objects.equals(token, "(")
+                    || Objects.equals(token, ")"))
+            ) {
+                outputQueue.offer(token);
+            } else if (Objects.equals(token, "(")) {
+                operatorStack.push(token);
+            } else if (Objects.equals(token, ")")) {
+                while (!operatorStack.isEmpty()
+                        && !Objects.equals(operatorStack.peek(), "(")) {
+                    outputQueue.offer(operatorStack.pop());
+                }
+
+                if (!operatorStack.empty() && Objects.equals(operatorStack.peek(), "(")) {
+                    operatorStack.pop();
+                }
+            } else if (operators.containsKey(token)) {
+                while (!operatorStack.empty()
+                        && operators.get(token) <= operators.get(operatorStack.peek())
+                        && !Objects.equals(operatorStack.peek(), "(")
                 ) {
                     outputQueue.offer(operatorStack.pop());
                 }
                 operatorStack.push(token);
-            } else {
-                outputQueue.offer(token);
             }
         }
 
         while (!operatorStack.empty()) {
+            if (Objects.equals(operatorStack.peek(), "("))
+                throw new BaseException("Invalid expression");
             outputQueue.offer(operatorStack.pop());
         }
 
