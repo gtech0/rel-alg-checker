@@ -15,43 +15,13 @@ public class Main {
 
     public static void main(String[] args) throws IllegalAccessException {
         relationMap = newMap();
-
-//        System.out.println("Relation1: " + relationMap.get("R1"));
-//        System.out.println("Relation2: " + relationMap.get("R2"));
-//        System.out.println("Relation3: " + relationMap.get("R3"));
-//
-//        System.out.println("Union: " +
-//                Sets.union(relationMap.get("R1"), relationMap.get("R2")));
-//
-//        System.out.println("Difference: " +
-//                Sets.difference(relationMap.get("R1"), relationMap.get("R2")));
-//
-//        System.out.println("Cartesian product: " +
-//                Sets.cartesianProduct(relationMap.get("R1"), relationMap.get("R2")));
-//
-//        System.out.println("Cartesian product (merged): " +
-//                product(relationMap.get("R1"), relationMap.get("R2")));
-//
-//        System.out.println("Projection: " +
-//                projection(relationMap.get("R1"), List.of("username")));
-//
-//        System.out.println("Intersection: " +
-//                Sets.intersection(relationMap.get("R1"), relationMap.get("R2")));
-//
-//        System.out.println("Division: " +
-//                division(relationMap.get("R1"), relationMap.get("R3"), List.of("username")));
-//
-//        System.out.println("Join: " +
-//                join(relationMap.get("R1"), relationMap.get("R2"), List.of("group", "phone", "username")));
-//
-//        System.out.println("Selection: " +
-//                selection(relationMap.get("R1"), List.of("phone", "!=", "133123", "AND", "1", "=", "1")));
-
         List<String> query1 = Arrays.asList(
-                "SELECT R1 WHERE phone = 133123 * ( 1 / 2 + 1 - 0.5 ) AND 1 = 1 -> T1",
+                "SELECT R2 WHERE ( NOT phone = 135121 OR username = \"andrew\" ) AND NOT username = \"jim\" -> T1",
                 "DIFFERENCE R1 AND T1 -> T2",
                 "DIVIDE R3 BY T2 OVER group username -> T3",
-                "JOIN T2 AND T3 OVER username"
+                "JOIN T2 AND T3 OVER username -> T4",
+                "TIMES R3 AND T4 -> T5",
+                "JOIN T5 AND T4 OVER group username phone"
         );
 
         System.out.println("Query: ");
@@ -289,19 +259,44 @@ public class Main {
                         finalOp2 = (String) op2;
                         finalOp1 = (String) op1;
                         relation.forEach(map -> {
-                            Collection<Object> mapValues = map.get(finalOp2);
-                                    if (!mapValues.isEmpty()) {
-                                        mapValues.forEach(
-                                                value -> valueComparator(
+                            Collection<Object> mapValues2 = map.get(finalOp2);
+                            Collection<Object> mapValues1 = map.get(finalOp1);
+                                    if (!mapValues2.isEmpty() && !mapValues1.isEmpty()) {
+                                        mapValues2.forEach(
+                                                value2 -> mapValues1.forEach(
+                                                            value1 -> valueComparator(
+                                                                    token,
+                                                                    map,
+                                                                    (String) value2,
+                                                                    (String) value1,
+                                                                    finalNotCheck1,
+                                                                    result
+                                                            )
+                                                )
+                                        );
+                                    } else if (!mapValues2.isEmpty()) {
+                                        mapValues2.forEach(
+                                                value2 -> valueComparator(
                                                         token,
                                                         map,
-                                                        (String) value,
+                                                        (String) value2,
                                                         finalOp1,
                                                         finalNotCheck1,
                                                         result
                                                 )
                                         );
-                                    } else {
+                                    } else if (!mapValues1.isEmpty()) {
+                                        mapValues1.forEach(
+                                                value1 -> valueComparator(
+                                                        token,
+                                                        map,
+                                                        finalOp2,
+                                                        (String) value1,
+                                                        finalNotCheck1,
+                                                        result
+                                                )
+                                        );
+                                    } else  {
                                         valueComparator(
                                                 token,
                                                 map,
